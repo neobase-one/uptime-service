@@ -72,8 +72,28 @@ func generateUptimeProofs(cfg *config.Config, dbClient *db.DBClient) error {
 	}
 	logging.Infof("Fetched %d validators' uptime info", len(validators))
 
-	// 2. For each validator, build message, aggregate signatures
+	// 2. Filter out inactive validators and log them
+	inactiveValidators := []string{}
+	activeValidators := make([]validator.ValidatorUptime, 0, len(validators))
+
 	for _, val := range validators {
+		if val.IsActive {
+			activeValidators = append(activeValidators, val)
+		} else {
+			inactiveValidators = append(inactiveValidators, val.NodeID)
+		}
+	}
+
+	if len(inactiveValidators) > 0 {
+		logging.Infof("Filtered out %d inactive validators", len(inactiveValidators))
+		logging.Info("Inactive NodeIDs:")
+      for _, nodeID := range inactiveValidators {
+        logging.Info(" - " + nodeID)
+      }
+	}
+
+	// 3. For each active validator, build message and aggregate signatures
+	for _, val := range activeValidators {
 		// Parse the validation ID into a 32-byte array
 		validationIDBytes, err := ids.FromString(val.ValidationID)
 		if errutil.HandleError("parsing validation ID for "+val.ValidationID, err) {
